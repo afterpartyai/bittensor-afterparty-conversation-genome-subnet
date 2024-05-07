@@ -113,7 +113,7 @@ class Evaluator:
         return final_score
 
 
-    async def evaluate(self, full_convo_metadata=None, miner_responses=None, body=None, exampleList=None, verbose=None):
+    async def evaluate(self, full_convo_metadata=None, miner_responses=None, body=None, exampleList=None, verbose=None, scoring_factors=None):
         if verbose == None:
             verbose = self.verbose
         print("EVALUATING", full_convo_metadata['tags'])
@@ -141,12 +141,24 @@ class Evaluator:
 
         final_scores = []
         for idx, response in enumerate(miner_responses):
-            if not response.cgp_output:
+            # TODO: Testing framework returns just response. Make it return cgp_output
+            try:
+                miner_response = response.cgp_output
+            except:
+                miner_response = response
+            uuid = "uuid-"+str(idx)
+            hotkey = "hk-uuid"
+            try:
+                uuid = response.axon.uuid
+                hotkey = response.axon.hotkey
+            except:
+                pass
+            if not miner_response:
                 bt.logging.error(f"BAD RESPONSE EVAL: miner index: {idx} HOTKEY: {response.axon.hotkey}")
-                final_scores.append({"uuid": response.axon.uuid, "hotkey": response.axon.hotkey, "adjustedScore":0.0, "final_miner_score":0.0})
+                final_scores.append({"uuid": uuid, "hotkey": hotkey, "adjustedScore":0.0, "final_miner_score":0.0})
             else:
                 #bt.logging.info("GOOD RESPONSE", idx, response.axon.uuid, response.axon.hotkey, )
-                miner_result = response.cgp_output[0]
+                miner_result = miner_response[0]
                 try:
                     # Make sure there are enough tags to make processing worthwhile
                     if miner_result is None or not miner_result or len(miner_result['tags']) < self.min_tags:
@@ -171,13 +183,17 @@ class Evaluator:
                 sorted_scores = np.sort(scores)
                 top_3_sorted_unique_scores = sorted_unique_scores[-3:]
                 if len(top_3_sorted_unique_scores) == 1:
-                    top_3_sorted_unique_scores.append(0.0)
-                    top_3_sorted_unique_scores.append(0.0)
+                    num1 = np.float64(0.0)
+                    num2 = np.float64(0.0)
+                    top_3_sorted_unique_scores = np.append(top_3_sorted_unique_scores, num1)
+                    top_3_sorted_unique_scores = np.append(top_3_sorted_unique_scores, num2)
                 elif len(top_3_sorted_unique_scores) == 2:
-                    top_3_sorted_unique_scores.append(0.0)
+                    num1 = np.float64(0.0)
+                    top_3_sorted_unique_scores = np.append(top_3_sorted_unique_scores, num1)
                 top_3_mean = np.mean(top_3_sorted_unique_scores)
 
-                scoring_factors = self.scoring_factors
+                if not scoring_factors:
+                    scoring_factors = self.scoring_factors
                 adjusted_score = (
                     (scoring_factors['top_3_mean'] * top_3_mean)+
                     (scoring_factors['median_score'] * median_score) +
@@ -191,13 +207,16 @@ class Evaluator:
                 total_tag_count = len(both_tags) + len(unique_tags)
                 uid = Utils.get(miner_result, 'uid')
                 final_miner_score = await self.calculate_penalty(uid, adjusted_score, total_tag_count, len(unique_tags), min_score, max_score)
-                final_scores.append({"uid": idx+1, "uuid": response.axon.uuid, "hotkey": response.axon.hotkey, "adjustedScore":adjusted_score, "final_miner_score":final_miner_score})
+                final_scores.append({"uid": idx+1, "uuid": uuid, "hotkey": hotkey, "adjustedScore":adjusted_score, "final_miner_score":final_miner_score})
                 bt.logging.debug(f"_______ ADJ SCORE: {adjusted_score} ___Num Tags: {len(miner_result['tags'])} Unique Tag Scores: {scores_unique} Median score: {median_score} Mean score: {mean_score} Top 3 Mean: {top_3_mean} Min: {min_score} Max: {max_score}" )
 
 
         bt.logging.debug(f"Complete evalulation. Final scores: {final_scores}")
         # Force to use cuda if available -- otherwise, causes device mismatch
-        rank_scores = rank_scores.to('cuda')
+        try:
+            rank_scores = rank_scores.to('cuda')
+        except:
+            pass
         # Convert to tensors
         for idx, final_score in enumerate(final_scores):
             rank_scores[idx] = final_scores[idx]['adjustedScore']
