@@ -92,7 +92,12 @@ class Validator(BaseValidatorNeuron):
             max_lines = c.get("convo_window", "max_lines", 10)
             overlap_lines = c.get("convo_window", "overlap_lines", 2)
             batch_num = random.randint(100000, 9999999)
-            validatorHotkey = "FINDHOTKEY"
+            validatorHotkey = "FINDHOTKEY-"
+            try:
+                validatorHotkey = str(self.axon.wallet.hotkey.ss58_address)
+            except:
+                pass
+
             await vl.put_convo(validatorHotkey, conversation_guid, full_conversation_metadata, type="validator",  batch_num=batch_num, window=999)
             try:
                 wl.log({
