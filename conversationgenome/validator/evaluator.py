@@ -76,6 +76,12 @@ class Evaluator:
 
     async def calculate_penalty(self, uid, score, num_tags, num_unique_tags, min_score, max_score):
         final_score = score
+        num_both_tags = num_tags - num_unique_tags
+
+        # No both tags. Penalize.
+        if num_both_tags == 0:
+            bt.logging.debug("!!PENALTY: No BOTH tags")
+            final_score *= 0.85
 
         # All junk tags. Penalize
         if max_score < .2:
