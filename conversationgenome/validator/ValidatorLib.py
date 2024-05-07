@@ -189,6 +189,7 @@ class ValidatorLib:
                 return None
             full_conversation_tags = Utils.get(full_conversation_metadata, "tags", [])
             bt.logging.info(f"Found {len(full_conversation_tags)} tags in FullConvo")
+            bt.logging.debug(f"Found full convo tags {full_conversation_tags} in FullConvo")
 
             # Make sure there are enough tags to make processing worthwhile
             minValidTags = self.validateMinimumTags(full_conversation_tags)

@@ -59,7 +59,7 @@ class Evaluator:
         else:
             return None
 
-    def score_vector_similarity(self, neighborhood_vectors, individual_vectors):
+    def score_vector_similarity(self, neighborhood_vectors, individual_vectors, tag=None):
         similarity_score = 0
         # Calculate the similarity score between the neighborhood_vectors and the individual_vectors
         # If all vectors are 0.0, the vector wasn't found for scoring in the embedding score
@@ -71,7 +71,7 @@ class Evaluator:
             similarity_score = np.dot(neighborhood_vectors, individual_vectors) / (np.linalg.norm(neighborhood_vectors) * np.linalg.norm(individual_vectors))
         except:
             bt.logging.error("Error generating similarity_score. Setting to zero.")
-        bt.logging.debug(f"Similarity score between the content and the tag: {similarity_score}")
+        bt.logging.debug(f"Tag '{tag}' similarity score: {similarity_score}")
         return similarity_score
 
 
@@ -79,7 +79,7 @@ class Evaluator:
     async def evaluate(self, full_convo_metadata=None, miner_responses=None, body=None, exampleList=None, verbose=None):
         if verbose == None:
             verbose = self.verbose
-        #bt.logging.info("FULL convo tags", full_convo_metadata['tags'])
+        print("EVALUATING", full_convo_metadata['tags'])
         final_scores = []
         now = datetime.now(timezone.utc)
         full_conversation_neighborhood = await self.calculate_semantic_neighborhood(full_convo_metadata)
@@ -155,6 +155,7 @@ class Evaluator:
         return (final_scores, rank_scores)
 
     async def calc_scores(self, full_convo_metadata, full_conversation_neighborhood, miner_result):
+        print("CALC SCORES")
         full_convo_tags = full_convo_metadata['tags']
         tags = miner_result['tags']
         tag_vector_dict = miner_result['vectors']
@@ -167,6 +168,7 @@ class Evaluator:
         tag_set = list(set(tags))
         diff = Utils.compare_arrays(full_convo_tags, tag_set)
         bt.logging.debug(f"Calculating scores for tag_set: {tag_set}")
+        bt.logging.debug(f"Diff -- both: {diff['both']} unique window: {diff['unique_2']}")
         for tag in tag_set:
             is_unique = False
             if tag in diff['unique_2']:
@@ -181,7 +183,7 @@ class Evaluator:
                     scores_both.append(0)
                 continue
             tag_vectors = tag_vector_dict[tag]['vectors']
-            score = self.score_vector_similarity(full_conversation_neighborhood, tag_vectors)
+            score = self.score_vector_similarity(full_conversation_neighborhood, tag_vectors, tag)
             scores.append(score)
             if is_unique:
                 scores_unique.append(score)
@@ -254,66 +256,66 @@ if __name__ == "__main__":
 
         return final_score
 
-    async def calculate_final_scores(ground_tags, miner_tag_lists):
-        e = Evaluator()
-        # Find the max tags returned for the y-axis of the plot
-        max_len = len(max(miner_tag_lists, key=len))
-        bt.logging.info("max_len", max_len)
-        scoreData = []
-        for idx, tags in enumerate(miner_tag_lists):
-            bt.logging.info(f"\n\n__________________ User {idx} __________________")
-            skewness = 0
-            results = await e.calc_scores(ground_tags, neighborhood_vector, tags)
-            (scores, scores_both, scores_unique) = results
-
-            mean_score = np.mean(scores)
-            median_score = np.median(scores)
-            freq, bins = np.histogram(scores, bins=10, range=(0,1))
-            #skewness = skew(freq)
-            skewness = skew(scores)
-            min_score = np.min(scores)
-            max_score = np.max(scores)
-
-
-            #y1 =  sorted(scores)
-            #bt.logging.info(scores)
-            freq, bins = np.histogram(scores, bins=10, range=(0,1))
-            mean = np.mean(scores)
-            std = np.std(scores)
-            plt.plot(bins[:-1], freq)
-            plt.axvline(mean, color='r', linestyle='--', label='Mean')
-            plt.axvline(mean + std, color='g', linestyle='--', label='1 Standard Deviation')
-            plt.axvline(mean - std, color='g', linestyle='--')
-
-            # Adjust the skewness so 0 is in the center of the graph
-            skewness_x = 0.5 + (0.3 * skewness)
-            plt.axvline(skewness_x, color='b', linestyle='--', label='Skewness')
-
-            plt.xlabel('Values')
-            plt.ylabel('Frequency')
-            plt.legend()
-            plt.ylim(0,max_len)
-
-            #y1 =  scores
-            #plt.plot(x, y1, label="line L")
-            #plt.plot()
-
-            plt.title(f"Scores for {idx} user")
-            plt.show()
-
-            # SCORING FUNCTION
-            adjusted_score = (
-                (0.7 * median_score) +
-                (0.3 * mean_score)
-            ) / 2
-            final_score = await calculate_penalty(adjusted_score, len(scores), len(scores_unique), min_score, max_score)
-
-            scoreData.append({"uid": idx, "adjustedScore":adjusted_score, "final_score":final_score, "tags":tags})
-
-            bt.logging.info(f"__________Tags: {len(tags)} Unique Tags: {len(scores_unique)} Median score: {median_score} Mean score: {mean_score} Skewness: {skewness} Min: {min_score} Max: {max_score}" )
-        bt.logging.info("Complete. Score sets:")
-        scoreData = sort_dict_list(scoreData, "adjustedScore", ascending=False)
-        Code(json.dumps(scoreData, indent=4))
+#    async def calculate_final_scores(ground_tags, miner_tag_lists):
+#        e = Evaluator()
+#        # Find the max tags returned for the y-axis of the plot
+#        max_len = len(max(miner_tag_lists, key=len))
+#        bt.logging.info("max_len", max_len)
+#        scoreData = []
+#        for idx, tags in enumerate(miner_tag_lists):
+#            bt.logging.info(f"\n\n__________________ User {idx} __________________")
+#            skewness = 0
+#            results = await e.calc_scores(ground_tags, neighborhood_vector, tags)
+#            (scores, scores_both, scores_unique) = results
+#
+#            mean_score = np.mean(scores)
+#            median_score = np.median(scores)
+#            freq, bins = np.histogram(scores, bins=10, range=(0,1))
+#            #skewness = skew(freq)
+#            skewness = skew(scores)
+#            min_score = np.min(scores)
+#            max_score = np.max(scores)
+#
+#
+#            #y1 =  sorted(scores)
+#            #bt.logging.info(scores)
+#            freq, bins = np.histogram(scores, bins=10, range=(0,1))
+#            mean = np.mean(scores)
+#            std = np.std(scores)
+#            plt.plot(bins[:-1], freq)
+#            plt.axvline(mean, color='r', linestyle='--', label='Mean')
+#            plt.axvline(mean + std, color='g', linestyle='--', label='1 Standard Deviation')
+#            plt.axvline(mean - std, color='g', linestyle='--')
+#
+#            # Adjust the skewness so 0 is in the center of the graph
+#            skewness_x = 0.5 + (0.3 * skewness)
+#            plt.axvline(skewness_x, color='b', linestyle='--', label='Skewness')
+#
+#            plt.xlabel('Values')
+#            plt.ylabel('Frequency')
+#            plt.legend()
+#            plt.ylim(0,max_len)
+#
+#            #y1 =  scores
+#            #plt.plot(x, y1, label="line L")
+#            #plt.plot()
+#
+#            plt.title(f"Scores for {idx} user")
+#            plt.show()
+#
+#            # SCORING FUNCTION
+#            adjusted_score = (
+#                (0.7 * median_score) +
+#                (0.3 * mean_score)
+#            ) / 2
+#            final_score = await calculate_penalty(adjusted_score, len(scores), len(scores_unique), min_score, max_score)
+#
+#            scoreData.append({"uid": idx, "adjustedScore":adjusted_score, "final_score":final_score, "tags":tags})
+#
+#            bt.logging.info(f"__________Tags: {len(tags)} Unique Tags: {len(scores_unique)} Median score: {median_score} Mean score: {mean_score} Skewness: {skewness} Min: {min_score} Max: {max_score}" )
+#        bt.logging.info("Complete. Score sets:")
+#        scoreData = sort_dict_list(scoreData, "adjustedScore", ascending=False)
+#        Code(json.dumps(scoreData, indent=4))
         #render_json()
 
     bt.logging.info("Running basic spacy keyword test...")
