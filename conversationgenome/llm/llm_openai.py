@@ -122,6 +122,7 @@ class llm_openai:
             tags = self.process_json_tag_return(response)
         else:
             tags = response.split(",")
+            tags = Utils.clean_tags(tags)
 
         if not Utils.empty(tags):
             if self.verbose:
