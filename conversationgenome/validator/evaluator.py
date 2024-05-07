@@ -74,6 +74,38 @@ class Evaluator:
         bt.logging.debug(f"Tag '{tag}' similarity score: {similarity_score}")
         return similarity_score
 
+    async def calculate_penalty(self, uid, score, num_tags, num_unique_tags, min_score, max_score):
+        return
+        final_score = score
+
+        # All junk tags. Penalize
+        if max_score < .2:
+            bt.logging.debug("calculate_penalty: all junk tag")
+            final_score *= 0.5
+
+        # Very few tags. Penalize.
+        if num_tags < 2:
+            bt.logging.debug("calculate_penalty: very few tags")
+            final_score *= 0.2
+
+        # no unique tags. Penalize
+        if num_unique_tags < 1:
+            bt.logging.debug("calculate_penalty: less than 1 unique tag")
+            final_score *= 0.75
+        elif num_unique_tags < 2:
+            bt.logging.debug("calculate_penalty: less than 2 unique tags")
+            final_score *= 0.8
+        elif num_unique_tags < 3:
+            bt.logging.debug("calculate_penalty: less than 3 unique tags")
+            final_score *= 0.85
+        elif num_unique_tags < 4:
+            bt.logging.debug("calculate_penalty: less than 4 unique tags")
+            final_score *= 0.9
+        elif num_unique_tags < 5:
+            bt.logging.debug("calculate_penalty: less than 5 unique tags")
+            final_score *= 0.95
+
+        return final_score
 
 
     async def evaluate(self, full_convo_metadata=None, miner_responses=None, body=None, exampleList=None, verbose=None):
@@ -124,7 +156,7 @@ class Evaluator:
                 # Loop through tags that match the full convo and get the scores for those
                 results = await self.calc_scores(full_convo_metadata, full_conversation_neighborhood, miner_result)
 
-                (scores, scores_both, scores_unique) = results
+                (scores, scores_both, scores_unique, diff) = results
                 mean_score = np.mean(scores)
                 median_score = np.median(scores)
                 min_score = np.min(scores)
@@ -142,6 +174,7 @@ class Evaluator:
                 )
 
                 final_miner_score = adjusted_score #await calculate_penalty(adjusted_score,both ,unique, min_score, max_score)
+                final_miner_score = await self.calculate_penalty(11, adjusted_score, len(diff['both']), len(diff['unique_2']), min_score, max_score)
                 final_scores.append({"uid": idx+1, "uuid": response.axon.uuid, "hotkey": response.axon.hotkey, "adjustedScore":adjusted_score, "final_miner_score":final_miner_score})
                 bt.logging.debug(f"_______ {adjusted_score} ___Num Tags: {len(miner_result['tags'])} Unique Tag Scores: {scores_unique} Median score: {median_score} Mean score: {mean_score} Top 3 Mean: {top_3_mean} Min: {min_score} Max: {max_score}" )
 
@@ -169,6 +202,7 @@ class Evaluator:
         diff = Utils.compare_arrays(full_convo_tags, tag_set)
         bt.logging.debug(f"Calculating scores for tag_set: {tag_set}")
         bt.logging.debug(f"Diff -- both: {diff['both']} unique window: {diff['unique_2']}")
+
         for tag in tag_set:
             is_unique = False
             if tag in diff['unique_2']:
@@ -192,7 +226,7 @@ class Evaluator:
             bt.logging.debug(f"Score for '{tag}': {score} -- Unique: {is_unique}")
         bt.logging.info(f"Scores num: {len(scores)} num of Unique tags: {len(scores_unique)} num of full convo tags: {len(full_convo_tags)}")
 
-        return (scores, scores_both, scores_unique)
+        return (scores, scores_both, scores_unique, diff)
 
 if __name__ == "__main__":
     bt.logging.info("Setting up test data...")
@@ -224,37 +258,6 @@ if __name__ == "__main__":
     ]
     miner_tag_lists = tagLists
 
-    async def calculate_penalty(uid, score, num_tags, num_unique_tags, min_score, max_score):
-        final_score = score
-
-        # All junk tags. Penalize
-        if max_score < .2:
-            bt.logging.debug("calculate_penalty: all junk tag")
-            final_score *= 0.5
-
-        # Very few tags. Penalize.
-        if num_tags < 2:
-            bt.logging.debug("calculate_penalty: very few tags")
-            final_score *= 0.2
-
-        # no unique tags. Penalize
-        if num_unique_tags < 1:
-            bt.logging.debug("calculate_penalty: less than 1 unique tag")
-            final_score *= 0.75
-        elif num_unique_tags < 2:
-            bt.logging.debug("calculate_penalty: less than 2 unique tags")
-            final_score *= 0.8
-        elif num_unique_tags < 3:
-            bt.logging.debug("calculate_penalty: less than 3 unique tags")
-            final_score *= 0.85
-        elif num_unique_tags < 4:
-            bt.logging.debug("calculate_penalty: less than 4 unique tags")
-            final_score *= 0.9
-        elif num_unique_tags < 5:
-            bt.logging.debug("calculate_penalty: less than 5 unique tags")
-            final_score *= 0.95
-
-        return final_score
 
 #    async def calculate_final_scores(ground_tags, miner_tag_lists):
 #        e = Evaluator()
