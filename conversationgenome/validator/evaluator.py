@@ -116,7 +116,6 @@ class Evaluator:
     async def evaluate(self, full_convo_metadata=None, miner_responses=None, body=None, exampleList=None, verbose=None, scoring_factors=None):
         if verbose == None:
             verbose = self.verbose
-        print("EVALUATING", full_convo_metadata['tags'])
         final_scores = []
         now = datetime.now(timezone.utc)
         full_conversation_neighborhood = await self.calculate_semantic_neighborhood(full_convo_metadata)
@@ -223,7 +222,6 @@ class Evaluator:
         return (final_scores, rank_scores)
 
     async def calc_scores(self, full_convo_metadata, full_conversation_neighborhood, miner_result):
-        print("CALC SCORES")
         full_convo_tags = full_convo_metadata['tags']
         tags = miner_result['tags']
         tag_vector_dict = miner_result['vectors']
