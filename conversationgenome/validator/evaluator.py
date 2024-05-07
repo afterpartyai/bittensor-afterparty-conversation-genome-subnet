@@ -79,29 +79,29 @@ class Evaluator:
 
         # All junk tags. Penalize
         if max_score < .2:
-            bt.logging.debug("calculate_penalty: all junk tag")
+            bt.logging.debug("!!PENALTY: max_score < .2 -- all junk tags")
             final_score *= 0.5
 
         # Very few tags. Penalize.
         if num_tags < 2:
-            bt.logging.debug("calculate_penalty: very few tags")
+            bt.logging.debug("!!PENALTY: < 2 TOTAL tags")
             final_score *= 0.2
 
         # no unique tags. Penalize
         if num_unique_tags < 1:
-            bt.logging.debug("calculate_penalty: less than 1 unique tag")
+            bt.logging.debug("!!PENALTY: less than 1 unique tag")
             final_score *= 0.75
         elif num_unique_tags < 2:
-            bt.logging.debug("calculate_penalty: less than 2 unique tags")
+            bt.logging.debug("!!PENALTY: less than 2 unique tags")
             final_score *= 0.8
         elif num_unique_tags < 3:
-            bt.logging.debug("calculate_penalty: less than 3 unique tags")
+            bt.logging.debug("!!PENALTY: less than 3 unique tags")
             final_score *= 0.85
         elif num_unique_tags < 4:
-            bt.logging.debug("calculate_penalty: less than 4 unique tags")
+            bt.logging.debug("!!PENALTY: less than 4 unique tags")
             final_score *= 0.9
         elif num_unique_tags < 5:
-            bt.logging.debug("calculate_penalty: less than 5 unique tags")
+            bt.logging.debug("!!PENALTY: less than 5 unique tags")
             final_score *= 0.95
 
         return final_score
@@ -161,8 +161,15 @@ class Evaluator:
                 min_score = np.min(scores)
                 max_score = np.max(scores)
                 std = np.std(scores)
+                sorted_unique_scores = np.sort(scores_unique)
                 sorted_scores = np.sort(scores)
-                top_3_mean = np.mean(sorted_scores[-3:])
+                top_3_sorted_unique_scores = sorted_unique_scores[-3:]
+                if len(top_3_sorted_unique_scores) == 1:
+                    top_3_sorted_unique_scores.append(0.0)
+                    top_3_sorted_unique_scores.append(0.0)
+                elif len(top_3_sorted_unique_scores) == 2:
+                    top_3_sorted_unique_scores.append(0.0)
+                top_3_mean = np.mean(top_3_sorted_unique_scores)
 
                 scoring_factors = self.scoring_factors
                 adjusted_score = (
@@ -173,9 +180,13 @@ class Evaluator:
                 )
 
                 final_miner_score = adjusted_score #await calculate_penalty(adjusted_score,both ,unique, min_score, max_score)
-                final_miner_score = await self.calculate_penalty(11, adjusted_score, len(diff['both']), len(diff['unique_2']), min_score, max_score)
+                both_tags = diff['both']
+                unique_tags = diff['unique_2']
+                total_tag_count = len(both_tags) + len(unique_tags)
+                uid = Utils.get(miner_result, 'uid')
+                final_miner_score = await self.calculate_penalty(uid, adjusted_score, total_tag_count, len(unique_tags), min_score, max_score)
                 final_scores.append({"uid": idx+1, "uuid": response.axon.uuid, "hotkey": response.axon.hotkey, "adjustedScore":adjusted_score, "final_miner_score":final_miner_score})
-                bt.logging.debug(f"_______ {adjusted_score} ___Num Tags: {len(miner_result['tags'])} Unique Tag Scores: {scores_unique} Median score: {median_score} Mean score: {mean_score} Top 3 Mean: {top_3_mean} Min: {min_score} Max: {max_score}" )
+                bt.logging.debug(f"_______ ADJ SCORE: {adjusted_score} ___Num Tags: {len(miner_result['tags'])} Unique Tag Scores: {scores_unique} Median score: {median_score} Mean score: {mean_score} Top 3 Mean: {top_3_mean} Min: {min_score} Max: {max_score}" )
 
 
         bt.logging.debug(f"Complete evalulation. Final scores: {final_scores}")
@@ -195,6 +206,9 @@ class Evaluator:
         scores_both = []
         scores_unique = []
         tag_count_ceiling = 5
+
+        #for idx, tag in enumerate(tags):
+        #    tags[idx] = tag.strip()
 
         # Remove duplicate tags
         tag_set = list(set(tags))
