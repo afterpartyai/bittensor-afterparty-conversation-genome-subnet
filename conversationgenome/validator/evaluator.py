@@ -75,7 +75,6 @@ class Evaluator:
         return similarity_score
 
     async def calculate_penalty(self, uid, score, num_tags, num_unique_tags, min_score, max_score):
-        return
         final_score = score
 
         # All junk tags. Penalize
